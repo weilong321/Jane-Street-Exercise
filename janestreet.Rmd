@@ -1,0 +1,270 @@
+---
+title: "Jane Street Business Development Exercise"
+author: "Matthew Chen"
+output: 
+  html_document:
+    toc: true  
+    toc_depth: 3
+    toc_float: true 
+    theme: spacelab
+     
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Importing and Cleaning Data
+
+Here I import libraries essential to analyse the dataset. I then convert the Activity Date from "char" format to "date" format to easily set up the Inventory Dates. This Inventory Date column is then copy-pasted into the Excel Spreadsheet.
+
+```{r, warning=FALSE, message=FALSE}
+# import libraries
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+
+data = read.csv("js_data.csv") # import data
+
+data$Activity.Date = as.Date(data$Activity.Date, "%d/%m/%Y") # convert from char to date
+
+# Make a new column for Inventory Date
+data = data %>%
+  mutate(InventoryDate = 
+      case_when(
+        Activity.Type == "Order" ~ Activity.Date + days(2),
+        Activity.Type == "Shipment" & Dee.s.Location == "1JS" ~ Activity.Date + days(1),
+        Activity.Type == "Shipment" & Dee.s.Location == "2WS" ~ Activity.Date + days(1),
+        Activity.Type == "Shipment" & Dee.s.Location == "3PUFF" ~ Activity.Date + days(2)
+         )
+  )
+```
+---
+---
+## Data Manipulation
+
+Here is where I use the previous dataset to find the end inventory units of each individual bakery outlet. I have created a function to help determine the quantity of shipments or orders to and from each bakery per day. I create a few vectors storing the starting units of each bakery item for each bakery.
+
+```{r, warning=FALSE, message=FALSE}
+# function for finding the quantity given parameters
+find.quantity <- function(data, SorO, date, location, bakery_item) {
+  quantity = data %>%
+    filter(Activity.Type == SorO) %>%
+    filter(InventoryDate == as.Date(date)) %>%
+    filter(Dee.s.Location == location) %>%
+    filter(Bakery.Item == bakery_item) %>%
+    select(Quantity) %>%
+    sum()
+  
+  return(quantity)
+}
+
+# Initial inventory
+js = c(500, 500, 500)
+ws = c(500, 500, 500)
+puff = c(500, 500, 500)
+```
+
+
+This is how I calculated the inventory at end of day:
+
+  * Use find.quantity to find quantity of shipments of specific bakery item into bakery.
+  * Use find.quantity to find quantity of orders of specific bakery item out of bakery.
+  * The end of day inventory would be calculated by adding the current inventory, adding the shipments into bakery and subtracting the orders out of bakery.
+  
+**NOTE: AAPL products cannot be shipped as per issues with trucks, therefore end of day AAPL inventory is calculated by the current AAPL inventory subtracted by the orders out of bakery.**
+
+
+### Inventory at the end of 22/08/2020
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# Inventory on 22nd
+js[1] = js[1] - 
+  find.quantity(data, "Order", "2020-08-22", "1JS", "AAPL")
+js[2] = js[2] + 
+  find.quantity(data, "Shipment", "2020-08-22", "1JS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-22", "1JS", "BBRD")
+js[3] = js[3] + 
+  find.quantity(data, "Shipment", "2020-08-22", "1JS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-22", "1JS", "CCC")
+
+ws[1] = ws[1] - 
+  find.quantity(data, "Order", "2020-08-22", "2WS", "AAPL")
+ws[2] = ws[2] + 
+  find.quantity(data, "Shipment", "2020-08-22", "2WS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-22", "2WS", "BBRD")
+ws[3] = ws[3] + 
+  find.quantity(data, "Shipment", "2020-08-22", "2WS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-22", "2WS", "CCC")
+
+puff[1] = puff[1] - 
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "AAPL")
+puff[2] = puff[2] + 
+  find.quantity(data, "Shipment", "2020-08-22", "3PUFF", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "BBRD")
+puff[3] = puff[3] + 
+  find.quantity(data, "Shipment", "2020-08-22", "3PUFF", "CCC") - 
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "CCC")
+df_1 = data.frame(js, ws, puff)
+row.names(df_1) = c("AAPL", "BBRD", "CCC")
+t(df_1)
+```
+
+### Inventory at the end of 23/08/2020
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# Inventory on 23rd
+js[1] = js[1] - 
+  find.quantity(data, "Order", "2020-08-23", "1JS", "AAPL")
+js[2] = js[2] + 
+  find.quantity(data, "Shipment", "2020-08-23", "1JS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-23", "1JS", "BBRD")
+js[3] = js[3] + 
+  find.quantity(data, "Shipment", "2020-08-23", "1JS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-23", "1JS", "CCC")
+
+ws[1] = ws[1] - 
+  find.quantity(data, "Order", "2020-08-23", "2WS", "AAPL")
+ws[2] = ws[2] + 
+  find.quantity(data, "Shipment", "2020-08-23", "2WS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-23", "2WS", "BBRD")
+ws[3] = ws[3] + 
+  find.quantity(data, "Shipment", "2020-08-23", "2WS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-23", "2WS", "CCC")
+
+puff[1] = puff[1] - 
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "AAPL")
+puff[2] = puff[2] + 
+  find.quantity(data, "Shipment", "2020-08-23", "3PUFF", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "BBRD")
+puff[3] = puff[3] + 
+  find.quantity(data, "Shipment", "2020-08-23", "3PUFF", "CCC") - 
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "CCC")
+df_2 = data.frame(js, ws, puff)
+row.names(df_2) = c("AAPL", "BBRD", "CCC")
+t(df_2)
+```
+
+### Inventory at the end of 24/08/2020
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+# Inventory on 24th
+js[1] = js[1] - 
+  find.quantity(data, "Order", "2020-08-24", "1JS", "AAPL")
+js[2] = js[2] + 
+  find.quantity(data, "Shipment", "2020-08-24", "1JS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-24", "1JS", "BBRD")
+js[3] = js[3] + 
+  find.quantity(data, "Shipment", "2020-08-24", "1JS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-24", "1JS", "CCC")
+
+ws[1] = ws[1] - 
+  find.quantity(data, "Order", "2020-08-24", "2WS", "AAPL")
+ws[2] = ws[2] + 
+  find.quantity(data, "Shipment", "2020-08-24", "2WS", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-24", "2WS", "BBRD")
+ws[3] = ws[3] + 
+  find.quantity(data, "Shipment", "2020-08-24", "2WS", "CCC") - 
+  find.quantity(data, "Order", "2020-08-24", "2WS", "CCC")
+
+puff[1] = puff[1] - 
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "AAPL")
+puff[2] = puff[2] + 
+  find.quantity(data, "Shipment", "2020-08-24", "3PUFF", "BBRD") - 
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "BBRD")
+puff[3] = puff[3] + 
+  find.quantity(data, "Shipment", "2020-08-24", "3PUFF", "CCC") - 
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "CCC")
+df_3 = data.frame(js, ws, puff)
+row.names(df_3) = c("AAPL", "BBRD", "CCC")
+t(df_3)
+```
+
+## What issues around order fulfillment might arise for Dee’s over the time period for which you’ve been given data?
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+AAPL_1JS = c(find.quantity(data, "Shipment", "2020-08-22", "1JS", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-23", "1JS", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-24", "1JS", "AAPL"),
+  find.quantity(data, "Order", "2020-08-22", "1JS", "AAPL") +
+  find.quantity(data, "Order", "2020-08-23", "1JS", "AAPL") +
+  find.quantity(data, "Order", "2020-08-24", "1JS", "AAPL"))
+BBRD_1JS = c(find.quantity(data, "Shipment", "2020-08-22", "1JS", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-23", "1JS", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-24", "1JS", "BBRD"),
+  find.quantity(data, "Order", "2020-08-22", "1JS", "BBRD") +
+  find.quantity(data, "Order", "2020-08-23", "1JS", "BBRD") +
+  find.quantity(data, "Order", "2020-08-24", "1JS", "BBRD")
+  )
+CCC_1JS = c(find.quantity(data, "Shipment", "2020-08-22", "1JS", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-23", "1JS", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-24", "1JS", "CCC"),
+  find.quantity(data, "Order", "2020-08-22", "1JS", "CCC") +
+  find.quantity(data, "Order", "2020-08-23", "1JS", "CCC") +
+  find.quantity(data, "Order", "2020-08-24", "1JS", "CCC")
+  )
+
+AAPL_2WS = c(find.quantity(data, "Shipment", "2020-08-22", "2WS", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-23", "2WS", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-24", "2WS", "AAPL"),
+  find.quantity(data, "Order", "2020-08-22", "2WS", "AAPL") +
+  find.quantity(data, "Order", "2020-08-23", "2WS", "AAPL") +
+  find.quantity(data, "Order", "2020-08-24", "2WS", "AAPL"))
+BBRD_2WS = c(find.quantity(data, "Shipment", "2020-08-22", "2WS", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-23", "2WS", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-24", "2WS", "BBRD"),
+  find.quantity(data, "Order", "2020-08-22", "2WS", "BBRD") +
+  find.quantity(data, "Order", "2020-08-23", "2WS", "BBRD") +
+  find.quantity(data, "Order", "2020-08-24", "2WS", "BBRD")
+  )
+CCC_2WS = c(find.quantity(data, "Shipment", "2020-08-22", "2WS", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-23", "2WS", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-24", "2WS", "CCC"),
+  find.quantity(data, "Order", "2020-08-22", "2WS", "CCC") +
+  find.quantity(data, "Order", "2020-08-23", "2WS", "CCC") +
+  find.quantity(data, "Order", "2020-08-24", "2WS", "CCC")
+  )
+
+AAPL_3PUFF = c(find.quantity(data, "Shipment", "2020-08-22", "3PUFF", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-23", "3PUFF", "AAPL") +
+  find.quantity(data, "Shipment", "2020-08-24", "3PUFF", "AAPL"),
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "AAPL") +
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "AAPL") +
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "AAPL"))
+BBRD_3PUFF = c(find.quantity(data, "Shipment", "2020-08-22", "3PUFF", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-23", "3PUFF", "BBRD") +
+  find.quantity(data, "Shipment", "2020-08-24", "3PUFF", "BBRD"),
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "BBRD") +
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "BBRD") +
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "BBRD")
+  )
+CCC_3PUFF = c(find.quantity(data, "Shipment", "2020-08-22", "3PUFF", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-23", "3PUFF", "CCC") +
+  find.quantity(data, "Shipment", "2020-08-24", "3PUFF", "CCC"),
+  find.quantity(data, "Order", "2020-08-22", "3PUFF", "CCC") +
+  find.quantity(data, "Order", "2020-08-23", "3PUFF", "CCC") +
+  find.quantity(data, "Order", "2020-08-24", "3PUFF", "CCC")
+  )
+
+shipments_1JS = data.frame(AAPL_1JS, BBRD_1JS, CCC_1JS)
+row.names(shipments_1JS) = c("Total shipments over period", "Total orders over period")
+shipments_1JS
+shipments_2WS = data.frame(AAPL_2WS, BBRD_2WS, CCC_2WS)
+row.names(shipments_2WS) = c("Total shipments over period", "Total orders over period")
+shipments_2WS
+shipments_3PUFF = data.frame(AAPL_3PUFF, BBRD_3PUFF, CCC_3PUFF)
+row.names(shipments_3PUFF) = c("Total shipments over period", "Total orders over period")
+shipments_3PUFF
+```
+
+**(Note that AAPL products shipped is technically 0 but in the situation where shipment is successful, it would be as it appears for this period.)**  
+From the above table, we can see that Dee's does not always ship enough products to satisfy customer orders in each individual bakery. This is also shown through the negative inventory of some bakeries. Therefore, there is a lack of production on Dee's side as well as a lack of inventory on the individual bakeries' side. Customer satisfaction may decrease and thus lead to not only a decrease in sales and revenue but also poor brand reputation which has long-term impacts on a business.
+
+
+## How could Dee’s counteract issues with order fulfillment once they occur?
+Communication is key here. As soon as Dee's receive news of any event impacting shipment or production of goods, they should contact each bakery and notifying them about the issues with order fulfillment. The bakeries can then inform the customers to come in at a later date due to the delays caused by the unfortunate event. If the customer has paid in advance, offering a refund is also possible. This will allow customer satisfaction to stabilise and not plummet due to orders not being fulfilled. 
+
+
+## How could Dee’s implement a system to help prevent issues with order fulfillment in the future?
+
+Dee's should have contingency plans for unpredictable events such as the breaking down of the trucks used to ship products to each bakery. For example, Dee's could have a standby truck or hire a new company for a day which can be used to deliver the goods on time to each bakery. Apart from unforseeable situations happening, they may also have a dataset used to map how each bakery uses their inventory. As the dataset grows, they may be able to predict situations such as how much of a certain product a particular bakery requires for a specific day. This will be incredibly useful as that way, Dee does not spend extra resources on making excess products and the bakeries will always have stock available to fulfil customer orders.
